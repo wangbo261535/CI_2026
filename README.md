@@ -34,12 +34,12 @@ pip install -r requirements.txt
 | `CLAIM_EXTRACT_API_KEY` | 模块一 Gemini |
 | `JUDGE_API_KEY` | 模块三 Gemini |
 | `EMBEDDING_API_KEY` | 向量嵌入（与向量库读写） |
-| `TAVILY_API_KEY` | Tavily 搜索（**必填**，勿写入代码仓库） |
+| `TAVILY_API_KEY` | Tavily 搜索 |
 | `CLAIM_EXTRACT_MODEL` / `CLAIM_JUDGE_MODEL` / `EMBEDDING_MODEL` | 可选，覆盖默认模型 ID（见 `model_config.py`） |
 | `FACTCHECK_DB_PATH` | 可选，SQLite 路径；默认项目目录下 `factcheck_results.db` |
 | `CHROMA_PERSIST_DIR` | 可选，Chroma 持久化目录；默认项目目录下 `chroma_db` |
 
-交互式脚本会在运行时提示输入各阶段 **API Key**（含 Tavily；若已导出 `TAVILY_API_KEY` 则跳过该步）。
+交互式脚本会在运行时提示输入各阶段 **API Key**
 
 示例（一次性导出）：
 
@@ -83,7 +83,7 @@ python ingest_vector_data.py
 
 ## 项目结构（文件一览）
 
-下表列出本目录下与流水线相关的主要文件。**模块二** = 双路检索（Tavily 网页检索 + Chroma 向量检索）及其离线建库；**编排** = 串联各模块、对检索结果做阈值过滤、聚合与落库调用，本身不单独调用外部检索 API。
+下表列出本目录下与流水线相关的主要文件。
 
 | 文件 | 阶段 | 说明 |
 |------|------|------|
@@ -99,17 +99,9 @@ python ingest_vector_data.py
 | `runtime_config.py` | **配置** | `setup_pipeline_runtime_interactive` / `setup_ingest_runtime_interactive`：终端交互输入 Key 与模型名（含 Tavily）。 |
 | `requirements.txt` | **依赖** | Python 包：`google-genai`、`tavily-python`、`chromadb` 等。 |
 | `README.md` | **文档** | 本说明。 |
-| `.gitignore` | **工程** | 忽略 `.venv`、`chroma_db/`、`*.db`、大批量结果 CSV、`.env` 等。 |
 | `batch_input_raw_texts.csv` | **数据样例** | 批量流水线输入示例（至少含 `raw_text` 列）。 |
 | `sample_vector_docs.csv` | **数据样例** | `ingest_vector_data.py` 默认示例，字段见上文「向量库」小节。 |
-| `batch_pipeline_results.csv` | **运行产物** | 批量运行生成（默认文件名）；已列入 `.gitignore`，一般不提交仓库。 |
-| `factcheck_results.db` | **运行产物** | `test_pipeline` 落库默认路径；已列入 `.gitignore`。 |
-| `chroma_db/` | **运行产物** | Chroma 持久化目录（默认）；已列入 `.gitignore`。 |
 
-## 安全说明
-
-- **不要将任何 API Key 提交到 Git**。本仓库中 Tavily 仅通过环境变量 `TAVILY_API_KEY` 配置。
-- 批量结果 CSV、本地 `*.db`、Chroma 目录已列入 `.gitignore`，避免误传大数据或敏感内容。
 
 ## 许可证
 
