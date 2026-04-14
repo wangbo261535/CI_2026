@@ -81,18 +81,30 @@ CSV 列：`source_id,title,content,source_type,url,published_at`（`source_id` �
 python ingest_vector_data.py
 ```
 
-## 项目结构（核心文件）
+## 项目结构（文件一览）
 
-| 文件 | 作用 |
-|------|------|
-| `test_pipeline.py` | `run_pipeline`、证据过滤与主流程入口 |
-| `gemini_for_claim.py` | 模块一：claim / query / 时间 |
-| `req_tavily.py` | Tavily 白名单检索 |
-| `vector_store.py` | Chroma 集合与查询 |
-| `claim_judge.py` | 模块三：判别 prompt 与解析 |
-| `result_store.py` | SQLite 表结构与 `persist_pipeline_result` |
-| `model_config.py` | 模型名与 Key 读取 |
-| `runtime_config.py` | 交互式 Key / 模型配置 |
+下表列出本目录下与流水线相关的主要文件。**模块二** = 双路检索（Tavily 网页检索 + Chroma 向量检索）及其离线建库；**编排** = 串联各模块、对检索结果做阈值过滤、聚合与落库调用，本身不单独调用外部检索 API。
+
+| 文件 | 阶段 | 说明 |
+|------|------|------|
+| `gemini_for_claim.py` | **模块一** | `build_search_tasks`：一次 Gemini 调用抽取 claim、英文 query、时间区间；返回 prompt 与模型原始输出。 |
+| `req_tavily.py` | **模块二** | `tavily_search`：新加坡白名单域名内 Tavily 检索；`TAVILY_API_KEY` 从环境变量读取。 |
+| `vector_store.py` | **模块二** | `ChromaEvidenceStore`：持久化 Chroma 集合、Gemini Embedding 写入与查询、`search_and_expand` 按 claim 召回并展开 chunk。 |
+| `ingest_vector_data.py` | **模块二（离线）** | 从 CSV 批量写入向量库（与在线流水线共用同一套 `vector_store`）；非每条新闻必经，用于构建/更新知识库。 |
+| `test_pipeline.py` | **编排 + 入口** | `run_pipeline`：调用模块一 → 模块二两路检索 → 模块三判别 → `aggregate_news_label`；内含 Tavily/向量证据的 score、distance 过滤；`print_results`、`main` 联调与 SQLite 写入。 |
+| `batch_run_pipeline_to_csv.py` | **编排 + 入口** | 批量读入 `raw_text` CSV，调用 `run_pipeline`，展平为多行写入结果 CSV。 |
+| `claim_judge.py` | **模块三** | `build_judge_prompt`、`judge_claim`：构造判别 prompt、调用 Gemini、解析 JSON 标签/理由/引用；返回 `module3_prompt` 与 `module3_response_text`。 |
+| `result_store.py` | **持久化** | SQLite：`news_run` / `claim_result` 表、`init_db` 迁移、`persist_pipeline_result`（含各模块 prompt 与模型原文、证据 JSON）。 |
+| `model_config.py` | **配置** | 各阶段默认模型 ID 与环境变量读取（`CLAIM_EXTRACT_*`、`JUDGE_*`、`EMBEDDING_*`），供模块一/二/三共用。 |
+| `runtime_config.py` | **配置** | `setup_pipeline_runtime_interactive` / `setup_ingest_runtime_interactive`：终端交互输入 Key 与模型名（含 Tavily）。 |
+| `requirements.txt` | **依赖** | Python 包：`google-genai`、`tavily-python`、`chromadb` 等。 |
+| `README.md` | **文档** | 本说明。 |
+| `.gitignore` | **工程** | 忽略 `.venv`、`chroma_db/`、`*.db`、大批量结果 CSV、`.env` 等。 |
+| `batch_input_raw_texts.csv` | **数据样例** | 批量流水线输入示例（至少含 `raw_text` 列）。 |
+| `sample_vector_docs.csv` | **数据样例** | `ingest_vector_data.py` 默认示例，字段见上文「向量库」小节。 |
+| `batch_pipeline_results.csv` | **运行产物** | 批量运行生成（默认文件名）；已列入 `.gitignore`，一般不提交仓库。 |
+| `factcheck_results.db` | **运行产物** | `test_pipeline` 落库默认路径；已列入 `.gitignore`。 |
+| `chroma_db/` | **运行产物** | Chroma 持久化目录（默认）；已列入 `.gitignore`。 |
 
 ## 安全说明
 
@@ -104,16 +116,3 @@ python ingest_vector_data.py
 若用于课程或研究，请按所在院系要求补充许可证声明；当前目录未默认附带开源许可证文件。
 
 ---
-
-**推送到 GitHub**：在 [github.com/new](https://github.com/new) 创建空仓库后，在本目录执行：
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: Singapore-focused fact-check pipeline"
-git branch -M main
-git remote add origin https://github.com/<你的用户名>/<仓库名>.git
-git push -u origin main
-```
-
-若使用 SSH，将 `origin` URL 改为 `git@github.com:<用户名>/<仓库名>.git`。
